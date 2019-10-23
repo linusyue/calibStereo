@@ -278,6 +278,7 @@ StereoCalib(const vector<string>& imagelist, Size boardSize, float squareSize, b
     initUndistortRectifyMap(cameraMatrix[1], distCoeffs[1], R2, P2, imageSize, CV_16SC2, rmap[1][0], rmap[1][1]);
 
     Mat canvas;
+    Mat canvas_orig;
     double sf;
     int w, h;
     if( !isVerticalStereo )
@@ -286,6 +287,7 @@ StereoCalib(const vector<string>& imagelist, Size boardSize, float squareSize, b
         w = cvRound(imageSize.width*sf);
         h = cvRound(imageSize.height*sf);
         canvas.create(h, w*2, CV_8UC3);
+        canvas_orig.create(h, w*2, CV_8UC3);
     }
     else
     {
@@ -293,32 +295,44 @@ StereoCalib(const vector<string>& imagelist, Size boardSize, float squareSize, b
         w = cvRound(imageSize.width*sf);
         h = cvRound(imageSize.height*sf);
         canvas.create(h*2, w, CV_8UC3);
+        canvas_orig.create(h*2, w, CV_8UC3);
     }
 
     for( i = 0; i < nimages; i++ )
     {
         for( k = 0; k < 2; k++ )
         {
-            Mat img = imread(goodImageList[i*2+k], 0), rimg, cimg;
+            Mat img = imread(goodImageList[i*2+k], 0), rimg, cimg, gimg;
             remap(img, rimg, rmap[k][0], rmap[k][1], INTER_LINEAR);
             cvtColor(rimg, cimg, COLOR_GRAY2BGR);
+            cvtColor(img, gimg, COLOR_GRAY2BGR);
             Mat canvasPart = !isVerticalStereo ? canvas(Rect(w*k, 0, w, h)) : canvas(Rect(0, h*k, w, h));
+            Mat canvasPart_orig = !isVerticalStereo ? canvas_orig(Rect(w*k, 0, w, h)) : canvas_orig(Rect(0, h*k, w, h));
             resize(cimg, canvasPart, canvasPart.size(), 0, 0, INTER_AREA);
+            resize(gimg, canvasPart_orig, canvasPart_orig.size(), 0, 0, INTER_AREA);
             if( useCalibrated )
             {
                 Rect vroi(cvRound(validRoi[k].x*sf), cvRound(validRoi[k].y*sf),
                           cvRound(validRoi[k].width*sf), cvRound(validRoi[k].height*sf));
                 rectangle(canvasPart, vroi, Scalar(0,0,255), 3, 8);
+                rectangle(canvasPart_orig, vroi, Scalar(0,0,255), 3, 8);
             }
         }
 
         if( !isVerticalStereo )
             for( j = 0; j < canvas.rows; j += 16 )
+            {
                 line(canvas, Point(0, j), Point(canvas.cols, j), Scalar(0, 255, 0), 1, 8);
+                line(canvas_orig, Point(0, j), Point(canvas_orig.cols, j), Scalar(0, 255, 0), 1, 8);
+            }
         else
             for( j = 0; j < canvas.cols; j += 16 )
+            {
                 line(canvas, Point(j, 0), Point(j, canvas.rows), Scalar(0, 255, 0), 1, 8);
+                line(canvas_orig, Point(j, 0), Point(j, canvas_orig.rows), Scalar(0, 255, 0), 1, 8);
+            }
         imshow("rectified", canvas);
+        imshow("unrectified", canvas_orig);
         char c = (char)waitKey();
         if( c == 27 || c == 'q' || c == 'Q' )
             break;
